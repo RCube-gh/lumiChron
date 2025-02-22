@@ -13,8 +13,8 @@ def get_date():
 def main(page:ft.Page):
     page.title="lumiChron"
     page.theme_mode=ft.ThemeMode.LIGHT
-    page.window.width=500
-    page.window.height=300
+    page.window.width=550
+    page.window.height=350
     page.window_resizable=True
     page.theme_mode="light"
     page.splash=ft.ProgressBar(visible=False)
@@ -24,20 +24,54 @@ def main(page:ft.Page):
             )
     current_date=f"{datetime.now().year}\n{datetime.now().month}/{datetime.now().day}({datetime.now().strftime('%a')})"
 
+
+
+    def load_notes():
+        if not os.path.exists(DATA_FILE):
+            return {}
+        with open(DATA_FILE,"r",encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+
+    def load_notes_for_date(date):
+        notes=load_notes()
+        history_list.controls.clear()
+        if date in notes:
+            for entry in notes[date]:
+                history_list.controls.append(ft.Text(f"- {entry}",selectable=True,size=20,weight=ft.FontWeight.W_500))
+        else:
+            history_list.controls.append(ft.Text("_No notes for this day._", italic=True))
+        history_list.update()
+        page.update()
+
+
+
+
+    def set_date(date):
+        date_display.value=f"{date.year}\n{date.month}/{date.day}({date.strftime('%a')})"
+        load_notes_for_date(date.strftime("%Y-%m-%d"))
+        page.update()
+
     
     def change_date(offset):
         current_date=datetime.strptime(date_display.value.replace("\n"," "), "%Y %m/%d(%a)")
         new_date=current_date+timedelta(days=offset)
-        date_display.value=f"{new_date.year}\n{new_date.month}/{new_date.day}({new_date.strftime('%a')})"
-        page.update()
+        set_date(new_date)
+
     def pick_date(e):
-        date_picker.pick_date()
+        page.dialog=date_picker
+        date_picker.open=True
+        page.update()
 
     def change_theme(e):
         page.splash.visible=True
         page.theme_mode="light" if page.theme_mode=="dark" else "dark"
         theme_button.selected= not theme_button.selected
         page.splash.visible=False
+        if note_input_screen.visible:
+            note_input.focus()
         page.update()
 
     def switch_screen(target):
@@ -46,10 +80,7 @@ def main(page:ft.Page):
         if target=="input":
             note_input.focus()
         else:
-            history_screen.content=ft.Column([
-                ft.Row([prev_button,date_display,next_button,calendar_button],alignment=ft.MainAxisAlignment.CENTER),
-                history_list
-                ])
+            load_notes_for_date(get_date())
         page.update()
 
 
@@ -57,11 +88,25 @@ def main(page:ft.Page):
     prev_button=ft.IconButton(ft.Icons.ARROW_LEFT,icon_size=50,on_click=lambda e:change_date(-1))
     next_button=ft.IconButton(ft.Icons.ARROW_RIGHT,icon_size=50,on_click=lambda e: change_date(1))
     calendar_button=ft.IconButton(ft.Icons.CALENDAR_MONTH,on_click=pick_date)
-    history_list=ft.Column([])
+    history_list=ft.ListView(
+            expand=True,
+            spacing=15,
+            auto_scroll=False
+            )
+
+    history_container=ft.Container(
+            content=history_list,
+            border=ft.border.all(2),
+            border_radius=10,
+            padding=ft.padding.all(10),
+            margin=ft.margin.all(10),
+            expand=True,
+            width=float("inf"),
+            )
     history_screen=ft.Container(
             content=ft.Column([
                 ft.Row([prev_button,date_display,next_button,calendar_button],alignment=ft.MainAxisAlignment.CENTER),
-                       history_list
+                history_container,
                        ]),
             expand=True,
             visible=False
@@ -90,6 +135,8 @@ def main(page:ft.Page):
     note_input=ft.TextField(
             label="Note",
             expand=True,
+            text_size=20,
+            text_style=ft.TextStyle(font_family="Consolas",weight=ft.FontWeight.BOLD),
             multiline=True,
             min_lines=1000000,
             border_radius=15,
@@ -101,14 +148,6 @@ def main(page:ft.Page):
             visible=True
             )
 
-    history_screen=ft.Container(
-            content=ft.Column([
-                ft.Text("History View"),
-                ft.Text("this is where saved notes will be displayed."),
-                ]),
-            expand=True,
-            visible=False
-            )
 
     def save_note(e):
         words=note_input.value
