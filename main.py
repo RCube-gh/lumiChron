@@ -1,7 +1,7 @@
 import flet as ft
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 DATA_FILE="data/notes.json"
 
 
@@ -9,9 +9,6 @@ DATA_FILE="data/notes.json"
 def get_date():
     return datetime.now().strftime("%Y-%m-%d")
 
-
-def save_notes(words):
-    pass
 
 def main(page:ft.Page):
     page.title="lumiChron"
@@ -21,6 +18,20 @@ def main(page:ft.Page):
     page.window_resizable=True
     page.theme_mode="light"
     page.splash=ft.ProgressBar(visible=False)
+
+    date_picker=ft.DatePicker(
+            on_change=lambda e:set_date(date_picker.value)
+            )
+    current_date=f"{datetime.now().year}\n{datetime.now().month}/{datetime.now().day}({datetime.now().strftime('%a')})"
+
+    
+    def change_date(offset):
+        current_date=datetime.strptime(date_display.value.replace("\n"," "), "%Y %m/%d(%a)")
+        new_date=current_date+timedelta(days=offset)
+        date_display.value=f"{new_date.year}\n{new_date.month}/{new_date.day}({new_date.strftime('%a')})"
+        page.update()
+    def pick_date(e):
+        date_picker.pick_date()
 
     def change_theme(e):
         page.splash.visible=True
@@ -32,9 +43,32 @@ def main(page:ft.Page):
     def switch_screen(target):
         note_input_screen.visible=(target=="input")
         history_screen.visible=(target=="history")
-        if note_input_screen.visible:
+        if target=="input":
             note_input.focus()
+        else:
+            history_screen.content=ft.Column([
+                ft.Row([prev_button,date_display,next_button,calendar_button],alignment=ft.MainAxisAlignment.CENTER),
+                history_list
+                ])
         page.update()
+
+
+    date_display=ft.Text(current_date,size=20,text_align=ft.TextAlign.CENTER)
+    prev_button=ft.IconButton(ft.Icons.ARROW_LEFT,icon_size=50,on_click=lambda e:change_date(-1))
+    next_button=ft.IconButton(ft.Icons.ARROW_RIGHT,icon_size=50,on_click=lambda e: change_date(1))
+    calendar_button=ft.IconButton(ft.Icons.CALENDAR_MONTH,on_click=pick_date)
+    history_list=ft.Column([])
+    history_screen=ft.Container(
+            content=ft.Column([
+                ft.Row([prev_button,date_display,next_button,calendar_button],alignment=ft.MainAxisAlignment.CENTER),
+                       history_list
+                       ]),
+            expand=True,
+            visible=False
+            )
+
+    page.overlay.append(date_picker)
+
 
     theme_button=ft.IconButton(
             on_click=change_theme,
